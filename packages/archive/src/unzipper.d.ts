@@ -4,6 +4,7 @@ declare module "unzipper" {
     type: "File" | "Directory";
     compressedSize: number;
     uncompressedSize: number;
+    buffer(): Promise<Buffer>;
   }
 
   interface ZipDirectory {

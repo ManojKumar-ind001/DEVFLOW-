@@ -2,7 +2,7 @@ import Fastify, { type FastifyInstance } from "fastify";
 import cors from "@fastify/cors";
 import multipart from "@fastify/multipart";
 import { createHash, randomUUID } from "node:crypto";
-import { inspectArchive, type ArchiveInspection } from "@devflow/archive";
+import { inspectArchive, readArchiveFile, type ArchiveInspection } from "@devflow/archive";
 import type { AnalysisJob, ArtifactRecord, JobResponse } from "@devflow/core";
 
 const jobs = new Map<string, AnalysisJob>();
@@ -82,6 +82,19 @@ export function createServer(): FastifyInstance {
     }
     const result = inspectionResults.get(job.id);
     return result ? { job, result } : { job };
+  });
+
+  server.get<{ Params: { id: string }; Querystring: { path?: string } }>("/v1/artifacts/:id/file", async (request, reply) => {
+    const artifact = artifacts.get(request.params.id);
+    if (!artifact) return reply.code(404).send({ error: "artifact_not_found" });
+    if (!request.query.path) return reply.code(400).send({ error: "path_required" });
+    try {
+      const preview = await readArchiveFile(artifact.bytes, artifact.record.filename, request.query.path);
+      if (!preview) return reply.code(422).send({ error: "file_preview_unavailable" });
+      return { preview };
+    } catch (error) {
+      return reply.code(400).send({ error: error instanceof Error ? error.message : "file_preview_failed" });
+    }
   });
 
   return server;

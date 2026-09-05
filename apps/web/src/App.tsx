@@ -4,7 +4,8 @@ import { Archive, ArrowUpRight, CheckCircle2, ChevronDown, ChevronRight, CircleA
 type Entry = { normalizedPath: string; type: "file" | "directory"; uncompressedSize: number };
 type Inspection = { format: "zip" | "tar" | "tar.gz"; files: number; directories: number; compressedSize: number; uncompressedSize: number; entries: Entry[] };
 type Job = { id: string; state: "queued" | "running" | "completed" | "failed"; progress: number; error?: string };
-type UploadResponse = { artifact: { filename: string; size: number; sha256: string }; job: Job };
+type UploadResponse = { artifact: { id: string; filename: string; size: number; sha256: string }; job: Job };
+type Preview = { path: string; content: string; truncated: boolean };
 
 const API_URL = import.meta.env.VITE_API_URL ?? "http://127.0.0.1:4100";
 
@@ -25,11 +26,14 @@ export function App() {
   const inputRef = useRef<HTMLInputElement>(null);
   const [job, setJob] = useState<Job | null>(null);
   const [artifact, setArtifact] = useState<UploadResponse["artifact"] | null>(null);
+  const [artifactId, setArtifactId] = useState<string | null>(null);
   const [inspection, setInspection] = useState<Inspection | null>(null);
   const [selectedPath, setSelectedPath] = useState<string | null>(null);
   const [query, setQuery] = useState("");
   const [dragging, setDragging] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [preview, setPreview] = useState<Preview | null>(null);
+  const [previewLoading, setPreviewLoading] = useState(false);
 
   useEffect(() => {
     if (!job || (job.state !== "queued" && job.state !== "running")) return;
@@ -53,6 +57,7 @@ export function App() {
     setError(null);
     setInspection(null);
     setSelectedPath(null);
+    setPreview(null);
     const body = new FormData();
     body.append("file", file);
     try {
@@ -60,6 +65,7 @@ export function App() {
       const data = await response.json() as UploadResponse & { error?: string };
       if (!response.ok) throw new Error(data.error ?? "Upload failed");
       setArtifact(data.artifact);
+      setArtifactId(data.artifact.id);
       setJob(data.job);
     } catch (uploadError) {
       setError(uploadError instanceof Error ? uploadError.message : "Upload failed");
@@ -72,6 +78,39 @@ export function App() {
   }
 
   const selectedEntry = inspection?.entries.find((entry) => entry.normalizedPath === selectedPath);
+
+  useEffect(() => {
+    if (!selectedEntry || selectedEntry.type !== "file" || !artifactId) {
+      setPreview(null);
+      return;
+    }
+    setPreviewLoading(true);
+    fetch(`${API_URL}/v1/artifacts/${artifactId}/file?path=${encodeURIComponent(selectedEntry.normalizedPath)}`)
+      .then(async (response) => response.ok ? response.json() as Promise<{ preview: Preview }> : null)
+      .then((data) => setPreview(data?.preview ?? null))
+      .finally(() => setPreviewLoading(false));
+  }, [artifactId, selectedEntry]);
+
+  const previewPanel = selectedEntry ? (
+    <>
+      <div className="preview-label">ENTRY INSPECTOR</div>
+      <h3>{selectedEntry.normalizedPath.split("/").pop()}</h3>
+      <div className="preview-path">{selectedEntry.normalizedPath}</div>
+      <div className="preview-stat"><span>Type</span><strong>{selectedEntry.type}</strong></div>
+      <div className="preview-stat"><span>Logical size</span><strong>{formatBytes(selectedEntry.uncompressedSize)}</strong></div>
+      {selectedEntry.type === "file" ? previewLoading ? (
+        <div className="preview-placeholder">Loading bounded preview...</div>
+      ) : preview ? (
+        <pre className="code-preview">{preview.content}{preview.truncated ? "\n\n... preview truncated at 256 KB" : ""}</pre>
+      ) : (
+        <div className="preview-placeholder">Binary or unavailable preview.</div>
+      ) : (
+        <div className="preview-placeholder">Folder metadata only.</div>
+      )}
+    </>
+  ) : (
+    <div className="empty-preview"><FileCode2 size={30} /><strong>Select an entry</strong><span>Choose a file or folder to inspect its metadata.</span></div>
+  );
 
   return (
     <main className="shell">
@@ -113,7 +152,7 @@ export function App() {
         <div className="metrics"><div><span>FILES</span><strong>{inspection.files}</strong></div><div><span>FOLDERS</span><strong>{inspection.directories}</strong></div><div><span>COMPRESSED</span><strong>{formatBytes(inspection.compressedSize)}</strong></div><div><span>EXPANDED</span><strong>{formatBytes(inspection.uncompressedSize)}</strong></div></div>
         <div className="explorer-layout">
           <div className="tree-panel"><div className="tree-toolbar"><div className="search-field"><Search size={16} /><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Filter files" /></div><span>{visibleEntries.length} results</span></div><div className="entry-list">{visibleEntries.map((entry) => <button className={`entry ${selectedPath === entry.normalizedPath ? "selected" : ""}`} key={entry.normalizedPath} onClick={() => setSelectedPath(entry.normalizedPath)}>{entry.type === "directory" ? <Folder size={16} /> : <FileCode2 size={16} />}<span>{entry.normalizedPath}</span>{entry.type === "directory" ? <ChevronRight size={14} /> : <small>{formatBytes(entry.uncompressedSize)}</small>}</button>)}</div></div>
-          <div className="preview-panel">{selectedEntry ? <><div className="preview-label">ENTRY INSPECTOR</div><h3>{selectedEntry.normalizedPath.split("/").pop()}</h3><div className="preview-path">{selectedEntry.normalizedPath}</div><div className="preview-stat"><span>Type</span><strong>{selectedEntry.type}</strong></div><div className="preview-stat"><span>Logical size</span><strong>{formatBytes(selectedEntry.uncompressedSize)}</strong></div><div className="preview-placeholder">Code preview connects to the extracted manifest in the next workspace slice.</div></> : <div className="empty-preview"><FileCode2 size={30} /><strong>Select an entry</strong><span>Choose a file or folder to inspect its metadata.</span></div>}</div>
+          <div className="preview-panel">{previewPanel}</div>
         </div>
       </section>}
       <footer><span>DEVFLOW / STATIC INSPECTION</span><span>Private by default · Local retention</span></footer>

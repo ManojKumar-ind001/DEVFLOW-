@@ -4,6 +4,7 @@ import * as tar from "tar-stream";
 import * as unzipper from "unzipper";
 import {
   DEFAULT_ARCHIVE_LIMITS,
+  normalizeArchivePath,
   validateArchiveManifest,
   type ArchiveEntryInput,
   type ArchiveLimits,
@@ -97,4 +98,64 @@ export async function inspectArchive(
     throw new Error("Archive input exceeds the configured size limit");
   }
   return format === "zip" ? inspectZip(buffer, limits) : inspectTar(buffer, format, limits);
+}
+
+export interface ArchiveFilePreview {
+  path: string;
+  content: string;
+  encoding: "utf-8";
+  truncated: boolean;
+}
+
+const MAX_PREVIEW_BYTES = 256 * 1024;
+
+async function readZipEntry(buffer: Buffer, targetPath: string): Promise<Buffer | null> {
+  const directory = await unzipper.Open.buffer(buffer);
+  const entry = directory.files.find((file) => normalizeArchivePath(file.path) === targetPath);
+  if (!entry || entry.type !== "File") return null;
+  return entry.buffer();
+}
+
+async function readTarEntry(buffer: Buffer, format: "tar" | "tar.gz", targetPath: string): Promise<Buffer | null> {
+  const tarBuffer = format === "tar.gz" ? await gunzipAsync(buffer) : buffer;
+  const extract = tar.extract();
+  let result: Buffer | null = null;
+  await new Promise<void>((resolve, reject) => {
+    extract.on("entry", (header, stream, next) => {
+      const chunks: Buffer[] = [];
+      stream.on("data", (chunk) => {
+        if (normalizeArchivePath(header.name) === targetPath && header.type === "file") chunks.push(Buffer.from(chunk as Uint8Array));
+      });
+      stream.on("end", () => {
+        if (chunks.length > 0) result = Buffer.concat(chunks);
+        next();
+      });
+    });
+    extract.on("finish", resolve);
+    extract.on("error", reject);
+    extract.end(tarBuffer);
+  });
+  return result;
+}
+
+export async function readArchiveFile(
+  buffer: Buffer,
+  filename: string,
+  archivePath: string,
+): Promise<ArchiveFilePreview | null> {
+  const format = formatFromFilename(filename);
+  const targetPath = normalizeArchivePath(archivePath);
+  const bytes = format === "zip"
+    ? await readZipEntry(buffer, targetPath)
+    : await readTarEntry(buffer, format, targetPath);
+  if (!bytes) return null;
+  const truncated = bytes.byteLength > MAX_PREVIEW_BYTES;
+  const previewBytes = truncated ? bytes.subarray(0, MAX_PREVIEW_BYTES) : bytes;
+  if (previewBytes.subarray(0, 4096).includes(0)) return null;
+  return {
+    path: targetPath,
+    content: previewBytes.toString("utf8"),
+    encoding: "utf-8",
+    truncated,
+  };
 }
