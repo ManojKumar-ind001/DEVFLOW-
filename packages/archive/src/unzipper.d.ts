@@ -2,10 +2,8 @@ declare module "unzipper" {
   interface ZipEntry {
     path: string;
     type: "File" | "Directory";
-    vars: {
-      compressedSize: number;
-      uncompressedSize: number;
-    };
+    compressedSize: number;
+    uncompressedSize: number;
   }
 
   interface ZipDirectory {

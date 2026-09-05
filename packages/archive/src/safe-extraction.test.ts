@@ -1,6 +1,7 @@
 import { mkdtemp, realpath, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import * as tar from "tar-stream";
+import { zipSync } from "fflate";
 import { describe, expect, it } from "vitest";
 import { resolveExtractionPath } from "./safe-extraction.js";
 import { inspectArchive } from "./inspect.js";
@@ -36,5 +37,16 @@ describe("safe extraction", () => {
     expect(inspection.format).toBe("tar");
     expect(inspection.files).toBe(1);
     expect(inspection.entries[0]?.normalizedPath).toBe("project/src/index.ts");
+  });
+
+  it("inspects a zip archive into a normalized manifest", async () => {
+    const zip = Buffer.from(zipSync({
+      "project/src/index.ts": new TextEncoder().encode("export const ready = true;\n"),
+      "project/README.md": new TextEncoder().encode("# DevFlow\n"),
+    }));
+    const inspection = await inspectArchive(zip, "project.zip");
+    expect(inspection.format).toBe("zip");
+    expect(inspection.files).toBeGreaterThan(0);
+    expect(inspection.entries[0]?.normalizedPath).toBeTruthy();
   });
 });

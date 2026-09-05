@@ -58,8 +58,8 @@ async function inspectZip(buffer: Buffer, limits: ArchiveLimits): Promise<Archiv
   const entries: ArchiveEntryInput[] = directory.files.map((file) => ({
     path: file.path,
     type: file.type === "Directory" ? "directory" : "file",
-    compressedSize: file.vars.compressedSize,
-    uncompressedSize: file.vars.uncompressedSize,
+    compressedSize: file.compressedSize,
+    uncompressedSize: file.uncompressedSize,
   }));
   return finalizeInspection("zip", buffer.byteLength, entries, limits);
 }
