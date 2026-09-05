@@ -8,7 +8,8 @@
     "test": "pnpm --recursive test",
     "typecheck": "pnpm build && pnpm --recursive typecheck",
     "dev:api": "pnpm --filter @devflow/api start",
-    "dev:web": "pnpm --filter @devflow/web dev --host 127.0.0.1"
+    "dev:web": "pnpm --filter @devflow/web dev --host 127.0.0.1",
+    "dev:cli": "pnpm --filter @devflow/cli start"
   },
   "devDependencies": {
     "@types/node": "^22.15.21",

@@ -39,6 +39,12 @@ importers:
         specifier: ^0.8.2
         version: 0.8.3
 
+  apps/cli:
+    dependencies:
+      '@devflow/api-client':
+        specifier: workspace:*
+        version: link:../../packages/api-client
+
   apps/web:
     dependencies:
       '@devflow/core':
@@ -69,6 +75,15 @@ importers:
       typescript:
         specifier: ^5.8.3
         version: 5.9.3
+
+  packages/api-client:
+    dependencies:
+      '@devflow/archive':
+        specifier: workspace:*
+        version: link:../archive
+      '@devflow/core':
+        specifier: workspace:*
+        version: link:../core
 
   packages/archive:
     dependencies:
