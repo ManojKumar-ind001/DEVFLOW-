@@ -23,7 +23,8 @@ export interface AnalysisJob {
   error?: string;
 }
 
-export interface JobResponse {
+export interface JobResponse<TResult = unknown> {
   job: AnalysisJob;
+  result?: TResult;
   resultUrl?: string;
 }

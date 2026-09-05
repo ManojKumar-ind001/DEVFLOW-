@@ -10,7 +10,9 @@
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },
   "dependencies": {
+    "@devflow/archive": "workspace:*",
     "@devflow/core": "workspace:*",
+    "@fastify/multipart": "^9.0.3",
     "fastify": "^5.4.0"
   }
 }
