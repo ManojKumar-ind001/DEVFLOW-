@@ -1,4 +1,5 @@
 import Fastify, { type FastifyInstance } from "fastify";
+import cors from "@fastify/cors";
 import multipart from "@fastify/multipart";
 import { createHash, randomUUID } from "node:crypto";
 import { inspectArchive, type ArchiveInspection } from "@devflow/archive";
@@ -22,6 +23,7 @@ async function readUpload(stream: AsyncIterable<Buffer>): Promise<Buffer> {
 
 export function createServer(): FastifyInstance {
   const server = Fastify({ logger: false });
+  server.register(cors, { origin: true });
   server.register(multipart, { limits: { fileSize: MAX_UPLOAD_BYTES, files: 1 } });
 
   server.get("/health", async () => ({ status: "ok", service: "devflow-api" }));

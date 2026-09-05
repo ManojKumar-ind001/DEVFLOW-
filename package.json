@@ -7,7 +7,8 @@
     "build": "pnpm --recursive --workspace-concurrency=1 build",
     "test": "pnpm --recursive test",
     "typecheck": "pnpm build && pnpm --recursive typecheck",
-    "dev:api": "pnpm --filter @devflow/api start"
+    "dev:api": "pnpm --filter @devflow/api start",
+    "dev:web": "pnpm --filter @devflow/web dev --host 127.0.0.1"
   },
   "devDependencies": {
     "@types/node": "^22.15.21",
